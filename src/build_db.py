@@ -26,3 +26,25 @@ for p in pdf_files:
             })
 
 print("Total chunks:", len(all_chunks))
+
+
+
+
+model = SentenceTransformer("all-MiniLM-L6-v2")
+
+texts = [c["text"] for c in all_chunks]
+embeddings = model.encode(texts, show_progress_bar=True)
+
+client = chromadb.PersistentClient(path="chroma_db")
+collection = client.get_or_create_collection("ranfy")
+
+ids = [f"chunk_{i}" for i in range(len(all_chunks))]
+
+collection.add(
+    ids=ids,
+    documents=texts,
+    embeddings=embeddings.tolist(),
+    metadatas=[{"source": c["source"], "page": c["page"]} for c in all_chunks],
+)
+
+print("Stored in Chroma:", collection.count())
