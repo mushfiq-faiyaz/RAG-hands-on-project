@@ -3,3 +3,32 @@ Can I get my money back?
 When is support available?
 What is the latest version of PidiFie?
 Who founded RanFy and when?
+
+
+
+
+RAG TEST QUESTIONS — baseline after Stage 3 (hybrid + rerank)
+==============================================================
+
+1. How much does Fresh Texfy Pro cost?
+   EXPECTED: $5.99/month or $49/year; price rose from $4.99 on 1 June 2026
+   RESULT: correct
+
+2. Can I get my money back?
+   EXPECTED: monthly 7 days, yearly 14 days, original payment method
+   RESULT: correct
+
+3. When is support available?
+   EXPECTED: Sunday-Thursday 10:00-18:00 GMT+6; closed Fri/Sat
+   RESULT: correct
+
+4. What is the latest version of PidiFie?
+   EXPECTED: 1.2 (released 2 October 2026)
+   RESULT: correct
+   NOTE: rank-1 is still the outdated Timeline chunk (says 1.1).
+         LLM resolves using the newer Monthly chunk at rank 2.
+         If top_n is ever reduced to 1, this breaks.
+
+5. Who founded RanFy and when?
+   EXPECTED: Mushfiqur Rahman Faiyaz, 14 March 2025
+   RESULT: correct
