@@ -1,3 +1,4 @@
+import sys
 import os
 from dotenv import load_dotenv
 from groq import Groq
@@ -15,7 +16,10 @@ model = SentenceTransformer("all-MiniLM-L6-v2")
 client = chromadb.PersistentClient(path="chroma_db")
 collection = client.get_collection("ranfy")
 
-question = "Can I get my money back?"
+if len(sys.argv) < 2:
+    print("Usage: python src/generate.py \"your question here\"")
+    sys.exit(1)
+question = " ".join(sys.argv[1:])
 
 q_vec = model.encode(question).tolist()
 results = collection.query(query_embeddings=[q_vec], n_results=3)
@@ -56,4 +60,15 @@ response = groq_client.chat.completions.create(
 )
 
 print(response.choices[0].message.content)
+
+
+
+print()
+print("Sources:")
+seen = set()
+for meta in metadatas:
+    key = (meta["source"], meta["page"])
+    if key not in seen:
+        print(f"  - {meta['source']}, page {meta['page']}")
+        seen.add(key)
 
