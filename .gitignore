@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+sessions.db
+session_test.json
+chroma_db/

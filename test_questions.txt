@@ -1,34 +1,43 @@
-How much does Fresh Texfy Pro cost?
-Can I get my money back?
-When is support available?
-What is the latest version of PidiFie?
-Who founded RanFy and when?
+RanFy RAG — Test Question Set
+==============================
+Last verified: 5/5 passed, rank-1 passed (GTE-small + hybrid + rerank + recency boost)
 
+Run: python src/eval.py
 
-
-
-RAG TEST QUESTIONS — baseline after Stage 3 (hybrid + rerank)
-==============================================================
-
+Questions
+---------
 1. How much does Fresh Texfy Pro cost?
-   EXPECTED: $5.99/month or $49/year; price rose from $4.99 on 1 June 2026
-   RESULT: correct
+   Expected: $5.99/month (price rose from $4.99 on 1 June 2026)
+   Source: RanFy_Policies_FAQ.pdf p.1
 
 2. Can I get my money back?
-   EXPECTED: monthly 7 days, yearly 14 days, original payment method
-   RESULT: correct
+   Expected: monthly 7 days, yearly 14 days, original payment method
+   Source: RanFy_Policies_FAQ.pdf p.1, p.2
 
 3. When is support available?
-   EXPECTED: Sunday-Thursday 10:00-18:00 GMT+6; closed Fri/Sat
-   RESULT: correct
+   Expected: Sunday-Thursday 10:00-18:00 GMT+6; closed Fri/Sat
+   Source: RanFy_Policies_FAQ.pdf p.2
 
 4. What is the latest version of PidiFie?
-   EXPECTED: 1.2 (released 2 October 2026)
-   RESULT: correct
-   NOTE: rank-1 is still the outdated Timeline chunk (says 1.1).
-         LLM resolves using the newer Monthly chunk at rank 2.
-         If top_n is ever reduced to 1, this breaks.
+   Expected: 1.2, released 2 October 2026
+   Source: RanFy_Monthly_Oct2026.pdf p.1   [RANK-1 CHECK]
+   Note: requires recency_boost; without it, Timeline p.1 (says 1.1) wins.
 
 5. Who founded RanFy and when?
-   EXPECTED: Mushfiqur Rahman Faiyaz, 14 March 2025
-   RESULT: correct
+   Expected: Mushfiqur Rahman Faiyaz, 14 March 2025
+   Source: RanFy_Company_Timeline.pdf p.1
+
+What each test catches
+----------------------
+#1  basic retrieval + LLM synthesis (price in a table)
+#2  paraphrase retrieval ("money back" -> "refund")
+#3  multi-doc synthesis (hours from FAQ, holiday from Monthly)
+#4  conflict resolution across sources with different dates
+#5  simple factual retrieval
+
+Known weaknesses
+----------------
+- Vague first-turns ("When was that released?" with no history) guess. Correct on
+  this corpus by luck, not design.
+- Rank-1 for #4 depends on the recency heuristic, which only works because one PDF
+  has a clear "Last updated" line and is the newest. Different corpus = different result.

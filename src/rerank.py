@@ -1,15 +1,14 @@
-import os
-os.environ["HF_HUB_OFFLINE"] = "1"
+import config
 
 import re
 import chromadb
 from rank_bm25 import BM25Okapi
 from sentence_transformers import SentenceTransformer, CrossEncoder
 
-model = SentenceTransformer("all-MiniLM-L6-v2")
-reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+model = SentenceTransformer(config.EMBED_MODEL)
+reranker = CrossEncoder(config.RERANK_MODEL)
 client = chromadb.PersistentClient(path="chroma_db")
-collection = client.get_collection("ranfy")
+collection = client.get_collection(config.COLLECTION_NAME)
 
 data = collection.get()
 ids = data["ids"]
@@ -18,12 +17,9 @@ meta_by_id = {i: m for i, m in zip(ids, data["metadatas"])}
 text_by_id = {i: t for i, t in zip(ids, texts)}
 
 
-
-
-
-
 def tokenize(text):
     return re.findall(r"[a-z0-9]+", text.lower())
+
 
 bm25 = BM25Okapi([tokenize(t) for t in texts])
 
@@ -53,41 +49,23 @@ def hybrid_search(question, k=20):
     return rrf(vector_search(question, k), bm25_search(question, k))[:k]
 
 
-def rerank(question, doc_ids, top_n=3):
+RECENCY_KEYWORDS = ("latest", "newest", "current", "recent", "now", "today")
+
+
+def rerank(question, doc_ids, top_n=3, recency_boost=2.0):
     pairs = [(question, text_by_id[doc_id]) for doc_id in doc_ids]
     scores = reranker.predict(pairs)
+
+    q_lower = question.lower()
+    has_recency = any(kw in q_lower for kw in RECENCY_KEYWORDS)
+
+    if has_recency:
+        dates = [meta_by_id[doc_id].get("date", "0000-00-00") for doc_id in doc_ids]
+        max_date = max(dates)
+        scores = [
+            float(s) + (recency_boost if d == max_date else 0.0)
+            for s, d in zip(scores, dates)
+        ]
+
     ranked = sorted(zip(doc_ids, scores), key=lambda x: x[1], reverse=True)
     return [doc_id for doc_id, _ in ranked[:top_n]]
-
-
-
-
-
-
-
-
-
-# QUESTIONS = [
-#     "How much does Fresh Texfy Pro cost?",
-#     "Can I get my money back?",
-#     "When is support available?",
-#     "What is the latest version of PidiFie?",
-#     "Who founded RanFy and when?",
-# ]
-
-# for q in QUESTIONS:
-#     print("=" * 70)
-#     print("Q:", q)
-
-#     candidates = hybrid_search(q, k=20)
-#     reranked = rerank(q, candidates, top_n=3)
-
-#     print("  [HYBRID top 3]")
-#     for doc_id in candidates[:3]:
-#         m = meta_by_id[doc_id]
-#         print(f"    - {m['source']} p.{m['page']}")
-
-#     print("  [HYBRID + RERANK top 3]")
-#     for doc_id in reranked:
-#         m = meta_by_id[doc_id]
-#         print(f"    - {m['source']} p.{m['page']}")

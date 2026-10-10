@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from groq import Groq
 
 from rerank import hybrid_search, rerank, meta_by_id, text_by_id
+from expand import expand
 
 load_dotenv()
 
@@ -111,9 +112,17 @@ def build_context(doc_ids):
 
 
 
-def ask(question, history, k_retrieve=20, k_final=3):
-    candidates = hybrid_search(question, k=k_retrieve)
-    top_ids = rerank(question, candidates, top_n=k_final)
+def ask(question, history, k_retrieve=10, k_final=3):
+    queries = expand(question, history)
+    merged = []
+    seen = set()
+    for q in queries:
+        for doc_id in hybrid_search(q, k=k_retrieve):
+            if doc_id not in seen:
+                merged.append(doc_id)
+                seen.add(doc_id)
+
+    top_ids = rerank(question, merged, top_n=k_final)
     context = build_context(top_ids)
 
     system_prompt = (

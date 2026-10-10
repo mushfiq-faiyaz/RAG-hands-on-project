@@ -3,6 +3,7 @@ os.environ["HF_HUB_OFFLINE"] = "1"
 
 from pathlib import Path
 from pypdf import PdfReader
+# from chunk import chunk_by_lines
 from chunk import chunk_text
 from sentence_transformers import SentenceTransformer
 import chromadb
@@ -12,9 +13,10 @@ import chromadb
 
 CHUNK_SIZE = 400
 OVERLAP = 80
+# COLLECTION_NAME = f"ranfy_{CHUNK_SIZE}_{OVERLAP}"
+COLLECTION_NAME = "ranfy"
 
-
-COLLECTION_NAME = f"ranfy_{CHUNK_SIZE}_{OVERLAP}"
+# COLLECTION_NAME = "ranfy_lines"
 
 pdf_dir = Path("Docs")
 pdf_files = sorted(pdf_dir.glob("*.pdf"))
@@ -32,6 +34,7 @@ for p in pdf_files:
         text = page.extract_text()
         # for piece in chunk_text(text, chunk_size=400, overlap=80):
         for piece in chunk_text(text, chunk_size=CHUNK_SIZE, overlap=OVERLAP):
+        # for piece in chunk_by_lines(text):
             all_chunks.append({
                 "text": piece,
                 "source": p.name,

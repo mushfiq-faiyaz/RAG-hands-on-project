@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>RanFy Chat</title>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 720px; margin: 20px auto; padding: 0 16px; }
+    #messages { border: 1px solid #ccc; padding: 12px; min-height: 300px; margin-bottom: 10px; }
+    .msg { margin: 8px 0; padding: 8px 12px; border-radius: 8px; white-space: pre-wrap; }
+    .user { background: #d1e7ff; text-align: right; }
+    .bot { background: #f1f1f1; }
+    .sources { font-size: 12px; color: #666; margin-top: 6px; }
+    .cite { color: #0066cc; cursor: pointer; font-size: 11px; margin-left: 1px; }
+    .cite:hover { text-decoration: underline; }
+    .src { color: #666; }
+    #input { width: 80%; padding: 8px; }
+    #send { padding: 8px 16px; }
+  </style>
+</head>
+<body>
+  <h1>RanFy Assistant</h1>
+  <div id="messages"></div>
+  <input id="input" type="text" placeholder="Ask a question...">
+  <button id="send">Send</button>
+
+  <script>
+    const messages = document.getElementById("messages");
+    const input = document.getElementById("input");
+    const sendBtn = document.getElementById("send");
+    let sessionId = null;
+
+    function escapeHtml(s) {
+      return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    function renderWithCitations(text, sources) {
+      let html = escapeHtml(text);
+      html = html.replace(/【(\d+)】/g, "[$1]");
+      html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+      for (const s of sources) {
+        const marker = "[" + s.index + "]";
+        const anchor = '<sup class="cite" data-target="src-' + s.index + '">' + marker + '</sup>';
+        html = html.split(marker).join(anchor);
+      }
+      return html;
+    }
+
+    function renderSources(sources) {
+      return "Sources: " + sources.map(s =>
+        '<span class="src" id="src-' + s.index + '">[' + s.index + '] ' +
+        escapeHtml(s.source) + ' p.' + s.page + '</span>'
+      ).join(" &middot; ");
+    }
+
+    function addMessage(text, cls, sources) {
+      const div = document.createElement("div");
+      div.className = "msg " + cls;
+      div.textContent = text;
+      if (sources && sources.length) {
+        const src = document.createElement("div");
+        src.className = "sources";
+        src.textContent = "Sources: " +
+          sources.map(s => s.source + " p." + s.page).join(", ");
+        div.appendChild(src);
+      }
+      messages.appendChild(div);
+      messages.scrollTop = messages.scrollHeight;
+    }
+
+    async function send() {
+      const question = input.value.trim();
+      if (!question) return;
+
+      addMessage(question, "user");
+      input.value = "";
+      sendBtn.disabled = true;
+
+      const botDiv = document.createElement("div");
+      botDiv.className = "msg bot";
+      const textSpan = document.createElement("span");
+      botDiv.appendChild(textSpan);
+      const srcDiv = document.createElement("div");
+      srcDiv.className = "sources";
+      botDiv.appendChild(srcDiv);
+      messages.appendChild(botDiv);
+      messages.scrollTop = messages.scrollHeight;
+
+      let rawText = "";
+      let currentSources = [];
+
+      try {
+        const r = await fetch("http://127.0.0.1:8000/chat/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question: question, session_id: sessionId }),
+        });
+
+        const reader = r.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+
+          let idx;
+          while ((idx = buffer.indexOf("\n\n")) !== -1) {
+            const raw = buffer.slice(0, idx).trim();
+            buffer = buffer.slice(idx + 2);
+            if (!raw.startsWith("data: ")) continue;
+            const event = JSON.parse(raw.slice(6));
+
+            if (event.type === "sources") {
+              sessionId = event.session_id;
+              currentSources = event.data;
+              srcDiv.innerHTML = renderSources(event.data);
+            } else if (event.type === "token") {
+              rawText += event.data;
+              textSpan.innerHTML = renderWithCitations(rawText, currentSources);
+              messages.scrollTop = messages.scrollHeight;
+            }
+          }
+        }
+      } catch (e) {
+        textSpan.textContent = "Error: " + e.message;
+      } finally {
+        sendBtn.disabled = false;
+      }
+    }
+
+    sendBtn.addEventListener("click", send);
+    input.addEventListener("keydown", e => { if (e.key === "Enter") send(); });
+    messages.addEventListener("click", e => {
+      if (e.target.classList.contains("cite")) {
+        const t = document.getElementById(e.target.dataset.target);
+        if (t) t.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    });
+  </script>
+</body>
+</html>
