@@ -4,4 +4,3 @@ __pycache__/
 .env
 sessions.db
 session_test.json
-chroma_db/
