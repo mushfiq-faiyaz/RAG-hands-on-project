@@ -1,6 +1,7 @@
 import os
 
-os.environ["HF_HUB_OFFLINE"] = "1"
+if not os.environ.get("RAILWAY_ENVIRONMENT"):
+    os.environ["HF_HUB_OFFLINE"] = "1"
 os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
 
 from dotenv import load_dotenv
