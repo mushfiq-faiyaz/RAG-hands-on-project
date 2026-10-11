@@ -1,9 +1,11 @@
+import config
 import json
 import requests
 
 r = requests.post(
     "http://127.0.0.1:8000/chat",
     json={"question": "What is the latest version of PidiFie?"},
+    headers={"X-Auth-Token": config.AUTH_TOKEN},
 )
 data = r.json()
 print("Answer:", data["answer"])

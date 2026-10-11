@@ -11,7 +11,15 @@ GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 if not GROQ_API_KEY:
     raise RuntimeError("GROQ_API_KEY is not set. Check your .env file.")
 
+AUTH_TOKEN = os.environ.get("AUTH_TOKEN")
+if not AUTH_TOKEN:
+    raise RuntimeError("AUTH_TOKEN is not set. Check your .env file.")
+
 GROQ_MODEL = "openai/gpt-oss-120b"
 EMBED_MODEL = "thenlper/gte-small"
 RERANK_MODEL = "cross-encoder/ms-marco-MiniLM-L-6-v2"
 COLLECTION_NAME = "ranfy_gte"
+
+MAX_TURNS_PER_SESSION = 20
+SESSION_TTL_DAYS = 30
+LOG_FILE = "rag.log"

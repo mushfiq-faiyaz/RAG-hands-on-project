@@ -1,8 +1,10 @@
 import config
 
 import json
+import logging
 from groq import Groq
 
+logger = logging.getLogger("rag")
 groq_client = Groq(api_key=config.GROQ_API_KEY)
 
 SYSTEM_PROMPT = (
@@ -23,11 +25,15 @@ def expand(question, history, max_queries=3):
         "content": f"Question: {question}\n\nReturn the JSON array now.",
     })
 
-    response = groq_client.chat.completions.create(
-        model=config.GROQ_MODEL,
-        messages=messages,
-        temperature=0,
-    )
+    try:
+        response = groq_client.chat.completions.create(
+            model=config.GROQ_MODEL,
+            messages=messages,
+            temperature=0,
+        )
+    except Exception as e:
+        logger.error(f"Groq expand failed, falling back to raw question: {e}")
+        return [question]
 
     raw = response.choices[0].message.content.strip()
     try:

@@ -29,6 +29,12 @@
     const sendBtn = document.getElementById("send");
     let sessionId = null;
 
+    let authToken = localStorage.getItem("authToken");
+    if (!authToken) {
+      authToken = prompt("Enter access password:") || "";
+      if (authToken) localStorage.setItem("authToken", authToken);
+    }
+
     function escapeHtml(s) {
       return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     }
@@ -89,11 +95,21 @@
       let currentSources = [];
 
       try {
-        const r = await fetch("http://127.0.0.1:8000/chat/stream", {
+        const r = await fetch("/chat/stream", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "X-Auth-Token": authToken,
+          },
           body: JSON.stringify({ question: question, session_id: sessionId }),
         });
+
+        if (r.status === 401) {
+          localStorage.removeItem("authToken");
+          textSpan.textContent = "Wrong password. Refresh to try again.";
+          sendBtn.disabled = false;
+          return;
+        }
 
         const reader = r.body.getReader();
         const decoder = new TextDecoder();

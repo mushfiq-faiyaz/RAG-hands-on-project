@@ -1,8 +1,20 @@
 import config
 
+import logging
 from groq import Groq
 from rerank import hybrid_search, rerank, meta_by_id, text_by_id
 from expand import expand
+
+logger = logging.getLogger("rag")
+logging.basicConfig(
+    filename=config.LOG_FILE,
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(message)s",
+)
+
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 groq_client = Groq(api_key=config.GROQ_API_KEY)
 
@@ -53,6 +65,7 @@ def build_sources(top_ids):
 
 
 def ask(question, history, k_retrieve=10, k_final=3):
+    logger.info(f"ask: {question!r} history_turns={len(history)}")
     queries = expand(question, history)
     merged = []
     seen = set()
@@ -74,11 +87,18 @@ def ask(question, history, k_retrieve=10, k_final=3):
         "content": f"Context:\n{context}\n\nQuestion: {question}",
     })
 
-    response = groq_client.chat.completions.create(
-        model=config.GROQ_MODEL,
-        messages=messages,
-        temperature=0,
-    )
+    try:
+        response = groq_client.chat.completions.create(
+            model=config.GROQ_MODEL,
+            messages=messages,
+            temperature=0,
+        )
+    except Exception as e:
+        logger.error(f"Groq call failed: {e}")
+        return {
+            "answer": "Sorry, the language model is unavailable right now. Please try again.",
+            "sources": build_sources(top_ids),
+        }
 
     clean = response.choices[0].message.content
     clean = clean.replace("\u202f", " ").replace("\u00a0", " ")
@@ -90,6 +110,7 @@ def ask(question, history, k_retrieve=10, k_final=3):
 
 
 def ask_stream(question, history, k_retrieve=10, k_final=3):
+    logger.info(f"ask_stream: {question!r} history_turns={len(history)}")
     queries = expand(question, history)
     merged = []
     seen = set()
@@ -113,18 +134,21 @@ def ask_stream(question, history, k_retrieve=10, k_final=3):
         "content": f"Context:\n{context}\n\nQuestion: {question}",
     })
 
-    stream = groq_client.chat.completions.create(
-        model=config.GROQ_MODEL,
-        messages=messages,
-        temperature=0,
-        stream=True,
-    )
-
-    for event in stream:
-        delta = event.choices[0].delta.content
-        if not delta:
-            continue
-        delta = delta.replace("\u202f", " ").replace("\u00a0", " ")
-        yield {"type": "token", "data": delta}
+    try:
+        stream = groq_client.chat.completions.create(
+            model=config.GROQ_MODEL,
+            messages=messages,
+            temperature=0,
+            stream=True,
+        )
+        for event in stream:
+            delta = event.choices[0].delta.content
+            if not delta:
+                continue
+            delta = delta.replace("\u202f", " ").replace("\u00a0", " ")
+            yield {"type": "token", "data": delta}
+    except Exception as e:
+        logger.error(f"Groq stream failed: {e}")
+        yield {"type": "token", "data": " [Sorry, the model became unavailable. Please retry.]"}
 
     yield {"type": "done"}
